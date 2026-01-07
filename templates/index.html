@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATS Analysis Pro</title>
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --card-bg: #ffffff;
+            --primary: #6366f1;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header { text-align: center; margin-bottom: 30px; }
+
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 24px;
+            max-width: 1100px;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            transition: opacity 0.5s ease;
+        }
+
+        .hidden-results { opacity: 0; pointer-events: none; }
+        .visible-results { opacity: 1; pointer-events: auto; }
+
+        h2 { 
+            font-size: 0.85rem; 
+            margin: 0 0 15px 0; 
+            color: var(--text-muted); 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+        }
+
+        /* Upload Styling */
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            background: #ffffff;
+        }
+        .upload-area.active { border-color: var(--success); background: #f0fdf4; }
+
+        /* Speedometer */
+        .gauge-wrapper {
+            position: relative;
+            width: 180px;
+            height: 90px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        .gauge-bg {
+            width: 180px; height: 180px;
+            border-radius: 50%;
+            border: 15px solid #f1f5f9;
+            box-sizing: border-box;
+        }
+        .gauge-fill {
+            position: absolute;
+            top: 0; width: 180px; height: 180px;
+            border-radius: 50%;
+            border: 15px solid var(--primary);
+            box-sizing: border-box;
+            border-bottom-color: transparent;
+            border-left-color: transparent;
+            transform: rotate(-45deg);
+            transition: transform 3s cubic-bezier(0.4, 0, 0.2, 1);
+            clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 50%);
+        }
+
+        /* Processing Overlay */
+        #loading-overlay {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .analyze-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .skill-tag {
+            display: inline-block;
+            background: #e0e7ff;
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin: 3px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>ATS Resume Analyzer</h1>
+    <p>Upload your resume and paste the job description to begin.</p>
+</div>
+
+<div class="dashboard-container">
+    
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="card">
+            <h2>1. Resume</h2>
+            <input type="file" id="fileInput" hidden onchange="handleFile(this)">
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <div id="upload-label">📁 Click to Upload Resume</div>
+                <div id="file-name" style="font-size: 0.8rem; color: var(--success); margin-top: 5px; font-weight: 600;"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>2. Job Description</h2>
+            <textarea id="jdInput" placeholder="Paste the job details here..."></textarea>
+            <button class="analyze-btn" onclick="startAnalysis()">Analyze Match</button>
+        </div>
+    </div>
+
+    <div id="results-col" class="hidden-results" style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <div id="loading-overlay">⌛ Analyzing Resume against Job Description...</div>
+
+        <div id="output-cards" style="display: none; flex-direction: column; gap: 20px;">
+            <div class="card" style="text-align: center;">
+                <h2>Resume Score</h2>
+                <div class="gauge-wrapper">
+                    <div class="gauge-bg"></div>
+                    <div id="meter" class="gauge-fill"></div>
+                </div>
+                <div id="scoreVal" style="font-size: 2rem; font-weight: 800; margin-top: -20px;">0.0</div>
+            </div>
+
+            <div class="card">
+                <h2>Extracted Skills</h2>
+                <div id="skills-list">
+                    <span class="skill-tag">Project Management</span>
+                    <span class="skill-tag">JavaScript</span>
+                    <span class="skill-tag">UI Design</span>
+                    <span class="skill-tag">Leadership</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h3 style="color: var(--success); font-size: 0.9rem;">Strengths</h3>
+                        <p id="strengths-text" style="font-size: 0.85rem; color: var(--text-muted);">Analysis will appear here...</p>
+                    </div>
+                    <div>
+                        <h3 style="color: var(--danger); font-size: 0.9rem;">Improvements</h3>
+                        <p id="improvements-text" style="font-size: 0.85rem; color: var(--text-muted);">Suggestions will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function handleFile(input) {
+    if (input.files && input.files[0]) {
+        document.getElementById('file-name').innerText = "Uploaded: " + input.files[0].name;
+        document.getElementById('upload-label').innerText = "Change File";
+        document.getElementById('dropZone').classList.add('active');
+    }
+}
+
+async function startAnalysis() {
+    const jd = document.getElementById('jdInput').value;
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+
+    if (!file || jd.trim() === "") {
+        alert("Please upload a resume and paste a job description first!");
+        return;
+    }
+
+    // UI Feedback: Show Results column and Loading state
+    document.getElementById('results-col').className = "visible-results";
+    document.getElementById('loading-overlay').style.display = "block";
+    document.getElementById('output-cards').style.display = "none";
+
+    // Prepare Multipart Form Data
+    const formData = new FormData();
+    formData.append("resume", file);
+    formData.append("job_description", jd);
+
+    try {
+        // ACTUAL API CALL TO FLASK
+        const response = await fetch("/analyze", {
+            method: "POST",
+            body: formData
+        });
+
+        if (!response.ok) throw new Error("Analysis failed");
+
+        const data = await response.json();
+
+        // 1. Hide loader, show cards
+        document.getElementById('loading-overlay').style.display = "none";
+        document.getElementById('output-cards').style.display = "flex";
+
+        // 2. Inject Skills
+        const skillsContainer = document.getElementById('skills-list');
+        skillsContainer.innerHTML = data.skills.map(skill => 
+            `<span class="skill-tag">${skill}</span>`
+        ).join('');
+
+        // 3. Inject Strengths & Improvements
+        document.getElementById('strengths-text').innerText = data.strengths.join('\n• ');
+        document.getElementById('improvements-text').innerText = data.improvements.join('\n• ');
+
+        // 4. Trigger Animated Speedometer with REAL score
+        animateScore(data.score);
+
+    } catch (error) {
+        alert("Error connecting to server: " + error.message);
+        document.getElementById('loading-overlay').innerText = "❌ Error analyzing file.";
+    }
+}
+
+function animateScore(targetScore) {
+    const meter = document.getElementById('meter');
+    const scoreVal = document.getElementById('scoreVal');
+    
+    // Reset position
+    meter.style.transform = 'rotate(-45deg)';
+    
+    setTimeout(() => {
+        // Calculate rotation: 0/10 = -45deg, 10/10 = 135deg
+        // Formula: (score * 18) - 45
+        const rotationDegrees = (targetScore * 18) - 45;
+        meter.style.transform = `rotate(${rotationDegrees}deg)`;
+        
+        let current = 0.0;
+        let interval = setInterval(() => {
+            if (current >= targetScore) {
+                current = targetScore; // Snap to exact target
+                clearInterval(interval);
+            } else {
+                current += 0.1;
+            }
+            scoreVal.innerText = current.toFixed(1) + "/10";
+        }, 50); // Speed of the counting numbers
+    }, 100);
+}
+</script>
+
+</body>
+</html>
