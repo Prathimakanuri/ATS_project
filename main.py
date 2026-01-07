@@ -10,7 +10,7 @@ CORS(app) # Enable CORS for all routes
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-client = genai.Client(api_key="AIzaSyCwNzWYZ157TXxktqNbi8nB87-ZI9lIubQ")
+client = genai.Client(api_key="")
 
 def extract_text_from_pdf(pdf_path):
     text = ""
